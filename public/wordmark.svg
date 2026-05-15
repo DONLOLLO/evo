@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="320" height="120" viewBox="0 0 320 120" xmlns="http://www.w3.org/2000/svg">
+  <!-- Wordmark EVO -->
+  <text x="160" y="86"
+        text-anchor="middle"
+        font-family="SF Pro Display, -apple-system, BlinkMacSystemFont, Inter, system-ui, sans-serif"
+        font-weight="900"
+        font-size="92"
+        letter-spacing="-3"
+        fill="#FFFFFF">EVO</text>
+</svg>
