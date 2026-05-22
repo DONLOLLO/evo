@@ -5,7 +5,7 @@ import { db } from "../db/database";
 import Layout from "../components/Layout";
 import { priorityHue, priorityLabels } from "../components/PriorityDot";
 import { uid, todayISO } from "../lib/date";
-import { Plus, Trash2, Pin, X, Check } from "lucide-react";
+import { Plus, Trash2, Pin, X, Check, Pencil } from "lucide-react";
 import type { Mission, Priority, Area } from "../types";
 
 type Filter = "today" | "all" | "done";
@@ -18,7 +18,7 @@ export default function Missions() {
 
   const [filter, setFilter] = useState<Filter>("today");
   const [areaFilter, setAreaFilter] = useState<string>("all");
-  const [showNew, setShowNew] = useState(false);
+  const [sheet, setSheet] = useState<{ mode: "new" } | { mode: "edit"; mission: Mission } | null>(null);
 
   const filtered = useMemo(() => {
     let list = missions ?? [];
@@ -141,7 +141,11 @@ export default function Missions() {
                     )}
                   </div>
                 </button>
-                <div className="flex-1 min-w-0">
+                <button
+                  type="button"
+                  onClick={() => setSheet({ mode: "edit", mission: m })}
+                  className="flex-1 min-w-0 text-left active:scale-[0.99] transition-transform"
+                >
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
                     <span
                       className="text-[10px] uppercase font-semibold tracking-[0.12em]"
@@ -173,8 +177,15 @@ export default function Missions() {
                   {m.notes && (
                     <p className="text-[13px] text-ink-muted mt-1">{m.notes}</p>
                   )}
-                </div>
+                </button>
                 <div className="flex flex-col gap-0.5 -mr-1">
+                  <button
+                    onClick={() => setSheet({ mode: "edit", mission: m })}
+                    className="p-2 rounded-full text-ink-quiet active:scale-90 transition-transform"
+                    aria-label="Modifica missione"
+                  >
+                    <Pencil size={14} />
+                  </button>
                   <button
                     onClick={() => togglePin(m)}
                     className={`p-2 rounded-full active:scale-90 transition-transform ${
@@ -204,7 +215,7 @@ export default function Missions() {
 
       {/* ── FAB ─────────────────────────────────────────────────────── */}
       <button
-        onClick={() => setShowNew(true)}
+        onClick={() => setSheet({ mode: "new" })}
         className="fixed right-5 z-30 w-14 h-14 rounded-full bg-white text-bg-deep flex items-center justify-center active:scale-90 transition-transform"
         style={{
           bottom: "calc(env(safe-area-inset-bottom) + 96px)",
@@ -215,45 +226,58 @@ export default function Missions() {
         <Plus size={26} strokeWidth={2.5} />
       </button>
 
-      {showNew && (
-        <NewMissionSheet
+      {sheet && (
+        <MissionSheet
           areas={areas ?? []}
-          onClose={() => setShowNew(false)}
+          mission={sheet.mode === "edit" ? sheet.mission : undefined}
+          onClose={() => setSheet(null)}
         />
       )}
     </Layout>
   );
 }
 
-function NewMissionSheet({
+function MissionSheet({
   areas,
+  mission,
   onClose,
 }: {
   areas: Area[];
+  mission?: Mission;
   onClose: () => void;
 }) {
-  const [title, setTitle] = useState("");
-  const [priority, setPriority] = useState<Priority>("mid");
-  const [areaId, setAreaId] = useState<string | undefined>();
-  const [notes, setNotes] = useState("");
+  const editing = !!mission;
+  const [title, setTitle] = useState(mission?.title ?? "");
+  const [priority, setPriority] = useState<Priority>(mission?.priority ?? "mid");
+  const [areaId, setAreaId] = useState<string | undefined>(mission?.areaId);
+  const [notes, setNotes] = useState(mission?.notes ?? "");
 
   async function save() {
     if (!title.trim()) return;
-    await db.missions.add({
-      id: uid("m-"),
-      title: title.trim(),
-      notes: notes.trim() || undefined,
-      priority,
-      areaId,
-      done: false,
-      createdAt: Date.now(),
-      order: Date.now(),
-    });
+    if (editing && mission) {
+      await db.missions.update(mission.id, {
+        title: title.trim(),
+        notes: notes.trim() || undefined,
+        priority,
+        areaId,
+      });
+    } else {
+      await db.missions.add({
+        id: uid("m-"),
+        title: title.trim(),
+        notes: notes.trim() || undefined,
+        priority,
+        areaId,
+        done: false,
+        createdAt: Date.now(),
+        order: Date.now(),
+      });
+    }
     onClose();
   }
 
   return (
-    <Sheet onClose={onClose} title="Nuova missione">
+    <Sheet onClose={onClose} title={editing ? "Modifica missione" : "Nuova missione"}>
       <input
         autoFocus
         value={title}
@@ -351,15 +375,15 @@ export function Sheet({
         animate={{ y: 0 }}
         exit={{ y: "100%" }}
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
-        className="glass-thick w-full rounded-t-3xl p-5 relative overflow-hidden"
-        style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 1.5rem)" }}
+        className="glass-thick w-full rounded-t-3xl relative overflow-hidden flex flex-col"
+        style={{ maxHeight: "90dvh" }}
         onClick={(e) => e.stopPropagation()}
       >
         <div
           className="absolute -top-32 left-1/2 -translate-x-1/2 w-64 h-64 rounded-full opacity-30 blur-3xl pointer-events-none"
           style={{ background: orb }}
         />
-        <div className="relative">
+        <div className="relative px-5 pt-5 flex-shrink-0">
           <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mb-4" />
           <div className="flex items-center justify-between mb-5">
             <h3 className="display text-[22px] text-ink">{title}</h3>
@@ -367,6 +391,11 @@ export function Sheet({
               <X size={22} />
             </button>
           </div>
+        </div>
+        <div
+          className="relative px-5 overflow-y-auto"
+          style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 1.5rem)" }}
+        >
           {children}
         </div>
       </motion.div>

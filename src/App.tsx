@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useAppStore } from "./stores/useAppStore";
+import { useAuthStore } from "./stores/useAuthStore";
 import Home from "./pages/Home";
 import Missions from "./pages/Missions";
 import Routine from "./pages/Routine";
@@ -13,12 +14,15 @@ import Rete from "./pages/Rete";
 export default function App() {
   const ready = useAppStore((s) => s.ready);
   const init = useAppStore((s) => s.init);
+  const authReady = useAuthStore((s) => s.ready);
+  const initAuth = useAuthStore((s) => s.init);
 
   useEffect(() => {
     init();
-  }, [init]);
+    initAuth();
+  }, [init, initAuth]);
 
-  if (!ready) {
+  if (!ready || !authReady) {
     return (
       <div className="relative min-h-screen flex items-center justify-center overflow-hidden">
         <div className="aurora">
