@@ -1,5 +1,10 @@
 import { useEffect } from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
+import {
+  Routes,
+  Route,
+  Navigate,
+  useLocation,
+} from "react-router-dom";
 import { useAppStore } from "./stores/useAppStore";
 import { useAuthStore } from "./stores/useAuthStore";
 import Home from "./pages/Home";
@@ -11,12 +16,20 @@ import Stats from "./pages/Stats";
 import Motivation from "./pages/Motivation";
 import Rete from "./pages/Rete";
 import Settings from "./pages/Settings";
+import Welcome from "./pages/Welcome";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
+
+const PUBLIC_ROUTES = new Set(["/welcome", "/forgot-password", "/reset-password"]);
 
 export default function App() {
   const ready = useAppStore((s) => s.ready);
   const init = useAppStore((s) => s.init);
   const authReady = useAuthStore((s) => s.ready);
   const initAuth = useAuthStore((s) => s.init);
+  const session = useAuthStore((s) => s.session);
+  const cloudConfigured = useAuthStore((s) => s.configured);
+  const location = useLocation();
 
   useEffect(() => {
     init();
@@ -42,8 +55,24 @@ export default function App() {
     );
   }
 
+  // Se Supabase è configurato ma l'utente non è loggato → /welcome
+  // (eccetto se sta visitando una route pubblica come /forgot-password)
+  const needsLogin =
+    cloudConfigured && !session && !PUBLIC_ROUTES.has(location.pathname);
+  if (needsLogin) {
+    return <Navigate to="/welcome" replace />;
+  }
+
+  // Se l'utente è loggato e sta su una route pubblica auth → /
+  if (session && PUBLIC_ROUTES.has(location.pathname) && location.pathname !== "/reset-password") {
+    return <Navigate to="/" replace />;
+  }
+
   return (
     <Routes>
+      <Route path="/welcome" element={<Welcome />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/" element={<Home />} />
       <Route path="/missioni" element={<Missions />} />
       <Route path="/routine" element={<Routine />} />

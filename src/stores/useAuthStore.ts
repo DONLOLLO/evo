@@ -3,6 +3,8 @@ import type { Session } from "@supabase/supabase-js";
 import { supabase, supabaseConfigured } from "../lib/supabase";
 import { startSync, stopSync } from "../lib/sync";
 
+type OAuthProvider = "apple" | "google";
+
 interface AuthState {
   configured: boolean;
   ready: boolean;
@@ -11,6 +13,9 @@ interface AuthState {
   init: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
   signUp: (email: string, password: string) => Promise<{ error?: string }>;
+  signInWithOAuth: (provider: OAuthProvider) => Promise<{ error?: string }>;
+  requestPasswordReset: (email: string) => Promise<{ error?: string }>;
+  updatePassword: (password: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
 }
 
@@ -63,7 +68,34 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   signUp: async (email, password) => {
     if (!supabase) return { error: "Backend non configurato." };
-    const { error } = await supabase.auth.signUp({ email, password });
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { emailRedirectTo: window.location.origin },
+    });
+    return error ? { error: error.message } : {};
+  },
+
+  signInWithOAuth: async (provider) => {
+    if (!supabase) return { error: "Backend non configurato." };
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: { redirectTo: window.location.origin },
+    });
+    return error ? { error: error.message } : {};
+  },
+
+  requestPasswordReset: async (email) => {
+    if (!supabase) return { error: "Backend non configurato." };
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    return error ? { error: error.message } : {};
+  },
+
+  updatePassword: async (password) => {
+    if (!supabase) return { error: "Backend non configurato." };
+    const { error } = await supabase.auth.updateUser({ password });
     return error ? { error: error.message } : {};
   },
 
