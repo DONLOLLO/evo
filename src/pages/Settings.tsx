@@ -7,6 +7,7 @@ import AreasSheet from "../components/AreasSheet";
 import AccountSheet from "../components/AccountSheet";
 import WeeklyReviewSheet from "../components/WeeklyReviewSheet";
 import NotificationsSheet from "../components/NotificationsSheet";
+import BrainDumpSheet from "../components/BrainDumpSheet";
 import { useAuthStore } from "../stores/useAuthStore";
 import { weekStartISO } from "../lib/date";
 import {
@@ -20,6 +21,7 @@ import {
   Download,
   Sparkles,
   CalendarCheck,
+  Wand2,
 } from "lucide-react";
 
 type Section = {
@@ -39,7 +41,7 @@ export default function Settings() {
   const syncing = useAuthStore((s) => s.syncing);
 
   const [openSheet, setOpenSheet] = useState<
-    "areas" | "account" | "review" | "notifications" | null
+    "areas" | "account" | "review" | "notifications" | "braindump" | null
   >(null);
   const weeklyReviews = useLiveQuery(() => db.weeklyReviews.toArray(), []);
   const currentWeekStart = weekStartISO();
@@ -109,6 +111,13 @@ export default function Settings() {
     {
       group: "Ritmo",
       items: [
+        {
+          icon: Wand2,
+          title: "Brain Dump",
+          subtitle: "Scrivi tutto, l'AI lo organizza per te",
+          accent: "#b9a4ff",
+          onClick: () => setOpenSheet("braindump"),
+        },
         {
           icon: CalendarCheck,
           title: thisWeekReview ? "Review settimana (fatta)" : "Review settimana",
@@ -232,6 +241,9 @@ export default function Settings() {
       )}
       {openSheet === "notifications" && (
         <NotificationsSheet onClose={() => setOpenSheet(null)} />
+      )}
+      {openSheet === "braindump" && (
+        <BrainDumpSheet onClose={() => setOpenSheet(null)} />
       )}
     </Layout>
   );

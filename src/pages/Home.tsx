@@ -10,6 +10,8 @@ import WeeklyReviewSheet, {
   shouldPromptWeeklyReview,
   lastReviewWeekStart,
 } from "../components/WeeklyReviewSheet";
+import BrainDumpSheet from "../components/BrainDumpSheet";
+import { Sparkles as SparklesIcon } from "lucide-react";
 import { Check, ChevronRight, Moon, Sun, Sunrise, Target, Flame, MessageCircle, Phone, Mail, Coffee, MoreHorizontal, Network } from "lucide-react";
 import type { Mission, Mood, TouchChannel, Challenge, ChallengeStatus } from "../types";
 
@@ -78,6 +80,7 @@ export default function Home() {
     [weeklyReviews],
   );
   const currentWeekStart = weekStartISO();
+  const [brainDumpOpen, setBrainDumpOpen] = useState(false);
 
   // Sfide attive
   const activeChallenge = useMemo(() => {
@@ -179,6 +182,19 @@ export default function Home() {
         <h1 className="display text-[44px] leading-[1.05] mt-2 text-ink">
           {greeting}.
         </h1>
+        <button
+          onClick={() => setBrainDumpOpen(true)}
+          className="mt-4 inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-[13.5px] font-medium active:scale-[0.97] transition-transform"
+          style={{
+            background:
+              "linear-gradient(135deg, rgba(185,164,255,0.18), rgba(93,212,196,0.12))",
+            border: "0.5px solid rgba(185,164,255,0.4)",
+            color: "#d8c8ff",
+          }}
+        >
+          <SparklesIcon size={14} strokeWidth={2.2} />
+          Brain Dump
+        </button>
         {tod === "evening" && !checkin && (
           <p className="text-ink-dim text-[15px] mt-2 leading-snug">
             È ora di chiudere la giornata.
@@ -463,6 +479,8 @@ export default function Home() {
           onClose={() => setReviewOpen(false)}
         />
       )}
+
+      {brainDumpOpen && <BrainDumpSheet onClose={() => setBrainDumpOpen(false)} />}
     </Layout>
   );
 }
