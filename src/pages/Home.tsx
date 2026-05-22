@@ -4,7 +4,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { motion, AnimatePresence } from "framer-motion";
 import { db } from "../db/database";
 import Layout from "../components/Layout";
-import { todayISO, currentWeekday, timeOfDay, dayName, daysBetween } from "../lib/date";
+import { todayISO, currentWeekday, timeOfDay, dayName, daysBetween, uid } from "../lib/date";
 import { useAppStore } from "../stores/useAppStore";
 import { Check, ChevronRight, Moon, Sun, Sunrise, Target, Flame, MessageCircle, Phone, Mail, Coffee, MoreHorizontal, Network } from "lucide-react";
 import type { Mission, Mood, TouchChannel, Challenge, ChallengeStatus } from "../types";
@@ -139,9 +139,10 @@ export default function Home() {
       .where({ blockId, date: today })
       .first();
     if (existing) {
-      await db.routineChecks.update(existing.id!, { done: !existing.done, at: Date.now() });
+      await db.routineChecks.update(existing.id, { done: !existing.done, at: Date.now() });
     } else {
       await db.routineChecks.add({
+        id: uid("rc-"),
         blockId,
         date: today,
         done: true,
@@ -486,6 +487,7 @@ function EveningCheckin({
   async function save() {
     setSaving(true);
     await db.checkins.add({
+      id: uid("ck-"),
       date: today,
       mood,
       note: note.trim() || undefined,

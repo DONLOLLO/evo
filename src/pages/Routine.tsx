@@ -47,9 +47,10 @@ export default function Routine() {
       .where({ blockId, date: today })
       .first();
     if (existing) {
-      await db.routineChecks.update(existing.id!, { done: !existing.done, at: Date.now() });
+      await db.routineChecks.update(existing.id, { done: !existing.done, at: Date.now() });
     } else {
       await db.routineChecks.add({
+        id: uid("rc-"),
         blockId,
         date: today,
         done: true,

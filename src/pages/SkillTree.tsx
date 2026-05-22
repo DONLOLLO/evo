@@ -42,6 +42,20 @@ export default function SkillTree() {
     [skills, openSkillId],
   );
 
+  async function deleteSkill(id: string) {
+    if (!confirm("Cancellare questa skill? Si perderanno anche risorse e azioni associate."))
+      return;
+    // Cascade soft-delete su risorse/azioni della skill
+    const res = await db.skillResources.where("skillId").equals(id).toArray();
+    const acts = await db.skillActions.where("skillId").equals(id).toArray();
+    await Promise.all([
+      ...res.map((r) => db.skillResources.delete(r.id)),
+      ...acts.map((a) => db.skillActions.delete(a.id)),
+    ]);
+    await db.skills.delete(id);
+    setOpenSkillId(null);
+  }
+
   return (
     <Layout title="Skill">
       <div className="mb-5 mt-1">
@@ -127,10 +141,12 @@ export default function SkillTree() {
       {openSkill && (
         <SkillDetail
           skill={openSkill}
+          areas={areas ?? []}
           areaColor={areas?.find((a) => a.id === openSkill.areaId)?.color ?? "#b9a4ff"}
           resources={(resources ?? []).filter((r) => r.skillId === openSkill.id)}
           actions={(actions ?? []).filter((a) => a.skillId === openSkill.id)}
           onClose={() => setOpenSkillId(null)}
+          onDelete={() => deleteSkill(openSkill.id)}
         />
       )}
 
@@ -146,16 +162,20 @@ export default function SkillTree() {
 
 function SkillDetail({
   skill,
+  areas,
   areaColor,
   resources,
   actions,
   onClose,
+  onDelete,
 }: {
   skill: Skill;
+  areas: import("../types").Area[];
   areaColor: string;
   resources: SkillResource[];
   actions: SkillAction[];
   onClose: () => void;
+  onDelete: () => void;
 }) {
   const [tab, setTab] = useState<"info" | "resources" | "actions">("info");
   const [newResTitle, setNewResTitle] = useState("");
@@ -164,6 +184,8 @@ function SkillDetail({
   const [newActTitle, setNewActTitle] = useState("");
   const [newActRecurring, setNewActRecurring] = useState(false);
   const [desc, setDesc] = useState(skill.description ?? "");
+  const [name, setName] = useState(skill.name);
+  const [editingName, setEditingName] = useState(false);
 
   async function addResource() {
     if (!newResTitle.trim()) return;
@@ -215,6 +237,19 @@ function SkillDetail({
   async function saveDesc() {
     await db.skills.update(skill.id, { description: desc.trim() || undefined });
   }
+  async function saveName() {
+    const trimmed = name.trim();
+    if (!trimmed || trimmed === skill.name) {
+      setName(skill.name);
+      setEditingName(false);
+      return;
+    }
+    await db.skills.update(skill.id, { name: trimmed });
+    setEditingName(false);
+  }
+  async function changeArea(areaId: string) {
+    await db.skills.update(skill.id, { areaId });
+  }
 
   return (
     <motion.div
@@ -248,9 +283,29 @@ function SkillDetail({
               >
                 Lv {skill.level}
               </p>
-              <h3 className="display text-[26px] leading-tight mt-0.5">
-                {skill.name}
-              </h3>
+              {editingName ? (
+                <input
+                  autoFocus
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  onBlur={saveName}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                    if (e.key === "Escape") {
+                      setName(skill.name);
+                      setEditingName(false);
+                    }
+                  }}
+                  className="display text-[26px] leading-tight mt-0.5 bg-transparent border-b border-white/30 focus:border-white/70 outline-none w-full"
+                />
+              ) : (
+                <button
+                  onClick={() => setEditingName(true)}
+                  className="display text-[26px] leading-tight mt-0.5 text-left w-full active:opacity-70"
+                >
+                  {skill.name}
+                </button>
+              )}
             </div>
             <button onClick={onClose} className="text-ink-muted p-1">
               <X size={22} />
@@ -277,16 +332,54 @@ function SkillDetail({
 
         <div className="px-5 pt-4 relative">
           {tab === "info" && (
-            <div>
-              <p className="eyebrow mb-2">Descrizione · Perché</p>
-              <textarea
-                value={desc}
-                onChange={(e) => setDesc(e.target.value)}
-                onBlur={saveDesc}
-                rows={6}
-                placeholder="Cosa significa questa skill per te? Perché vuoi svilupparla?"
-                className="input w-full resize-none text-[14.5px] leading-relaxed"
-              />
+            <div className="space-y-5">
+              <div>
+                <p className="eyebrow mb-2">Descrizione · Perché</p>
+                <textarea
+                  value={desc}
+                  onChange={(e) => setDesc(e.target.value)}
+                  onBlur={saveDesc}
+                  rows={6}
+                  placeholder="Cosa significa questa skill per te? Perché vuoi svilupparla?"
+                  className="input w-full resize-none text-[14.5px] leading-relaxed"
+                />
+              </div>
+
+              <div>
+                <p className="eyebrow mb-2">Area</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {areas.map((a) => {
+                    const active = skill.areaId === a.id;
+                    return (
+                      <button
+                        key={a.id}
+                        onClick={() => changeArea(a.id)}
+                        className="chip"
+                        style={{
+                          color: active ? a.color : "rgba(255,255,255,0.7)",
+                          background: active ? `${a.color}1a` : undefined,
+                          borderColor: active ? `${a.color}55` : undefined,
+                        }}
+                      >
+                        {a.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  onClick={onDelete}
+                  className="btn-ghost w-full inline-flex items-center justify-center gap-2 text-sys-red"
+                  style={{
+                    borderColor: "rgba(255,107,122,0.35)",
+                  }}
+                >
+                  <Trash2 size={14} />
+                  Cancella skill
+                </button>
+              </div>
             </div>
           )}
 

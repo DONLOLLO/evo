@@ -22,7 +22,7 @@ export interface Stat {
 }
 
 export interface StatHistory {
-  id?: number; // auto-increment
+  id: string;
   statId: string;
   value: number;
   note?: string;
@@ -43,7 +43,7 @@ export interface RoutineBlock {
 }
 
 export interface RoutineCheck {
-  id?: number;
+  id: string;
   blockId: string;
   date: string; // YYYY-MM-DD
   done: boolean;
@@ -143,7 +143,7 @@ export interface Vision {
 export type Mood = "great" | "ok" | "rough";
 
 export interface DailyCheckin {
-  id?: number;
+  id: string;
   date: string; // YYYY-MM-DD
   mood?: Mood;
   note?: string;
@@ -192,7 +192,7 @@ export interface Challenge {
 export type ChallengeStatus = "done" | "missed";
 
 export interface ChallengeLog {
-  id?: number;
+  id: string;
   challengeId: string;
   date: string;          // YYYY-MM-DD
   status: ChallengeStatus;

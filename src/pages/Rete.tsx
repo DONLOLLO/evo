@@ -472,6 +472,8 @@ function PeopleSheet({
   touchpoints: Touchpoint[];
   onClose: () => void;
 }) {
+  const [editingId, setEditingId] = useState<string | null>(null);
+
   async function remove(id: string) {
     if (touchpoints.some((t) => t.personId === id && !t.done)) return;
     await db.people.delete(id);
@@ -494,6 +496,15 @@ function PeopleSheet({
             const openCount = touchpoints.filter(
               (t) => t.personId === p.id && !t.done,
             ).length;
+            if (editingId === p.id) {
+              return (
+                <PersonEditRow
+                  key={p.id}
+                  person={p}
+                  onDone={() => setEditingId(null)}
+                />
+              );
+            }
             return (
               <li
                 key={p.id}
@@ -510,14 +521,28 @@ function PeopleSheet({
                   )}
                 </div>
                 {openCount > 0 && (
-                  <span className="chip num text-accent" style={{ borderColor: "rgba(185,164,255,0.4)", background: "rgba(185,164,255,0.10)" }}>
+                  <span
+                    className="chip num text-accent"
+                    style={{
+                      borderColor: "rgba(185,164,255,0.4)",
+                      background: "rgba(185,164,255,0.10)",
+                    }}
+                  >
                     {openCount}
                   </span>
                 )}
                 <button
-                  onClick={() => remove(p.id)}
+                  onClick={() => setEditingId(p.id)}
                   className="p-1.5 text-ink-quiet active:scale-90"
+                  aria-label="Modifica persona"
+                >
+                  <Pencil size={13} />
+                </button>
+                <button
+                  onClick={() => remove(p.id)}
+                  className="p-1.5 text-ink-quiet active:scale-90 disabled:opacity-30"
                   disabled={openCount > 0}
+                  aria-label="Cancella persona"
                 >
                   <Trash2 size={13} />
                 </button>
@@ -527,5 +552,89 @@ function PeopleSheet({
         </ul>
       )}
     </Sheet>
+  );
+}
+
+function PersonEditRow({
+  person,
+  onDone,
+}: {
+  person: Person;
+  onDone: () => void;
+}) {
+  const [name, setName] = useState(person.name);
+  const [role, setRole] = useState(person.role ?? "");
+  const [channel, setChannel] = useState<TouchChannel | undefined>(
+    person.channel,
+  );
+  const [notes, setNotes] = useState(person.notes ?? "");
+
+  async function save() {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    await db.people.update(person.id, {
+      name: trimmed,
+      role: role.trim() || undefined,
+      channel,
+      notes: notes.trim() || undefined,
+    });
+    onDone();
+  }
+
+  return (
+    <li className="card !p-3.5 space-y-2">
+      <input
+        autoFocus
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder="Nome"
+        className="input w-full"
+      />
+      <input
+        value={role}
+        onChange={(e) => setRole(e.target.value)}
+        placeholder="Ruolo (opzionale)"
+        className="input w-full"
+      />
+      <div className="grid grid-cols-5 gap-1">
+        {(Object.keys(channelLabels) as TouchChannel[]).map((c) => {
+          const Icon = channelIcons[c];
+          const active = channel === c;
+          return (
+            <button
+              key={c}
+              onClick={() => setChannel(active ? undefined : c)}
+              className="py-2 rounded-xl border-[0.5px] flex items-center justify-center transition-all"
+              style={{
+                background: active
+                  ? `${channelTints[c]}22`
+                  : "rgba(255,255,255,0.04)",
+                borderColor: active
+                  ? `${channelTints[c]}66`
+                  : "rgba(255,255,255,0.10)",
+                color: active ? channelTints[c] : "rgba(255,255,255,0.5)",
+              }}
+            >
+              <Icon size={14} strokeWidth={2} />
+            </button>
+          );
+        })}
+      </div>
+      <textarea
+        value={notes}
+        onChange={(e) => setNotes(e.target.value)}
+        placeholder="Note (opzionale)"
+        rows={2}
+        className="input w-full resize-none"
+      />
+      <div className="grid grid-cols-2 gap-2 pt-1">
+        <button onClick={onDone} className="btn-ghost text-[13px] py-2">
+          Annulla
+        </button>
+        <button onClick={save} className="btn-primary text-[13px] py-2">
+          Salva
+        </button>
+      </div>
+    </li>
   );
 }

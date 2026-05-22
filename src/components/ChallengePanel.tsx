@@ -452,6 +452,7 @@ function CheckInSheet({
       });
     } else {
       await db.challengeLogs.add({
+        id: uid("cl-"),
         challengeId: challenge.id,
         date,
         status,

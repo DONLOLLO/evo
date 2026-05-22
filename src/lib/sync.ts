@@ -1,12 +1,16 @@
 // ════════════════════════════════════════════════════════════════════════
-// Sync layer — Dexie (locale, source of truth per la UI)  ⇄  Supabase (cloud)
+// Sync layer — Dexie (locale)  ⇄  Supabase (cloud)
 // ────────────────────────────────────────────────────────────────────────
-// Strategia:
-//  • On login: reconciliation iniziale (push local→cloud se cloud vuoto,
-//    altrimenti pull cloud→local).
-//  • A regime: ogni create/update/delete su Dexie viene rispecchiato su
-//    Supabase tramite Dexie hooks (fire-and-forget, log su errore).
-//  • Quando si "pulla" da cloud, suppressSync=true evita loop.
+// • Local-first: la UI legge sempre da Dexie. Le scritture Dexie vengono
+//   rispecchiate su Supabase via hook (creating/updating/deleting).
+// • Soft delete (tombstone): le delete locali si traducono in upsert su
+//   Supabase con deleted_at = now(). In reconcile, le righe con
+//   deleted_at sul cloud vengono cancellate localmente.
+// • Reconcile = merge:
+//     - alive remote rows  → bulkPut su Dexie
+//     - tombstone remote   → delete locale
+//     - local extra rows   → backfill su Supabase
+// • Online listener: al ritorno della rete, ri-reconcile.
 // ════════════════════════════════════════════════════════════════════════
 
 import { db } from "../db/database";
@@ -34,13 +38,18 @@ const SYNCED_TABLES: SyncedTable[] = [
   { dexie: "people", remote: "people" },
   { dexie: "touchpoints", remote: "touchpoints" },
   { dexie: "challenges", remote: "challenges" },
+  // history tables (append-only logs)
+  { dexie: "statHistory", remote: "stat_history" },
+  { dexie: "routineChecks", remote: "routine_checks" },
+  { dexie: "checkins", remote: "checkins" },
+  { dexie: "challengeLogs", remote: "challenge_logs" },
 ];
 
 let suppressSync = false;
 let currentUserId: string | null = null;
 let hooksAttached = false;
+let onlineListenerAttached = false;
 
-// Converte undefined → null per Postgres (preserva intenzione di "campo vuoto").
 function toRemote(obj: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(obj)) {
@@ -49,11 +58,10 @@ function toRemote(obj: Record<string, unknown>): Record<string, unknown> {
   return out;
 }
 
-// Pulisce le righe arrivate da Supabase: rimuove metadata e nulls.
 function fromRemote(row: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(row)) {
-    if (k === "user_id" || k === "updated_at") continue;
+    if (k === "user_id" || k === "updated_at" || k === "deleted_at") continue;
     if (v !== null) out[k] = v;
   }
   return out;
@@ -64,52 +72,44 @@ function tableOf(name: string) {
   return (db as any)[name];
 }
 
-async function pullAndReplace(t: SyncedTable) {
-  if (!supabase) return;
-  const { data, error } = await supabase.from(t.remote).select("*");
-  if (error) {
-    console.warn(`[sync] pull ${t.remote}:`, error.message);
-    return;
-  }
-  const cleanRows = (data ?? []).map(fromRemote);
-  suppressSync = true;
-  try {
-    await tableOf(t.dexie).clear();
-    if (cleanRows.length > 0) {
-      await tableOf(t.dexie).bulkPut(cleanRows);
-    }
-  } finally {
-    suppressSync = false;
-  }
-}
+// ── reconcile ──────────────────────────────────────────────────────────
 
 async function reconcileTable(t: SyncedTable) {
   if (!supabase || !currentUserId) return;
+  // Fetch tutto, anche le righe tombstone (per applicare delete locali).
   const { data, error } = await supabase.from(t.remote).select("*");
   if (error) {
     console.warn(`[sync] check ${t.remote}:`, error.message);
     return;
   }
-  const remoteRows = (data ?? []).map(fromRemote);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const remoteAll: any[] = data ?? [];
+  const alive = remoteAll.filter((r) => !r.deleted_at);
+  const dead = remoteAll.filter((r) => !!r.deleted_at);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const localRows: any[] = await tableOf(t.dexie).toArray();
 
-  // 1) Merge remote → local (server values vincono per le righe che ci sono di là).
-  if (remoteRows.length > 0) {
-    suppressSync = true;
-    try {
-      await tableOf(t.dexie).bulkPut(remoteRows);
-    } finally {
-      suppressSync = false;
+  suppressSync = true;
+  try {
+    // 1) Applica tombstone remote → delete locale.
+    if (dead.length > 0) {
+      const deadIds = dead.map((r) => r.id);
+      await tableOf(t.dexie).bulkDelete(deadIds);
     }
+    // 2) Merge alive remote → local (server wins per id condivisi).
+    if (alive.length > 0) {
+      await tableOf(t.dexie).bulkPut(alive.map(fromRemote));
+    }
+  } finally {
+    suppressSync = false;
   }
 
-  // 2) Push locali che non sono in cloud (es. create offline o primo login).
-  const remoteIds = new Set(remoteRows.map((r) => (r as { id: string }).id));
-  const onlyLocal = localRows.filter((r) => !remoteIds.has(r.id));
+  // 3) Backfill: locali non visti su remote (né alive né dead) → push up.
+  const knownRemoteIds = new Set(remoteAll.map((r) => r.id));
+  const onlyLocal = localRows.filter((r) => !knownRemoteIds.has(r.id));
   if (onlyLocal.length > 0) {
     const rows = onlyLocal.map((r) =>
-      toRemote({ ...r, user_id: currentUserId }),
+      toRemote({ ...r, user_id: currentUserId, deleted_at: null }),
     );
     const opts = t.singleton ? { onConflict: "user_id,id" } : undefined;
     const { error: pushErr } = await supabase
@@ -120,9 +120,21 @@ async function reconcileTable(t: SyncedTable) {
   }
 }
 
+async function reconcileAll(): Promise<void> {
+  for (const t of SYNCED_TABLES) {
+    await reconcileTable(t);
+  }
+}
+
+// ── push (writes locali → cloud) ───────────────────────────────────────
+
 async function pushUpsert(t: SyncedTable, obj: Record<string, unknown>) {
   if (!supabase || !currentUserId) return;
-  const row = toRemote({ ...obj, user_id: currentUserId });
+  const row = toRemote({
+    ...obj,
+    user_id: currentUserId,
+    deleted_at: null,
+  });
   const opts = t.singleton ? { onConflict: "user_id,id" } : undefined;
   const { error } = await supabase
     .from(t.remote)
@@ -131,15 +143,29 @@ async function pushUpsert(t: SyncedTable, obj: Record<string, unknown>) {
   if (error) console.warn(`[sync] upsert ${t.remote}:`, error.message);
 }
 
-async function pushDelete(t: SyncedTable, id: string) {
+async function pushTombstone(
+  t: SyncedTable,
+  id: string,
+  obj: Record<string, unknown> | undefined,
+) {
   if (!supabase || !currentUserId) return;
+  // Upsert con deleted_at impostato. Manteniamo gli altri campi se li abbiamo,
+  // così la riga resta consultabile (audit) anche da cancellata.
+  const row = toRemote({
+    ...(obj ?? {}),
+    id,
+    user_id: currentUserId,
+    deleted_at: new Date().toISOString(),
+  });
+  const opts = t.singleton ? { onConflict: "user_id,id" } : undefined;
   const { error } = await supabase
     .from(t.remote)
-    .delete()
-    .eq("id", id)
-    .eq("user_id", currentUserId);
-  if (error) console.warn(`[sync] delete ${t.remote}:`, error.message);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .upsert(row as any, opts as any);
+  if (error) console.warn(`[sync] tombstone ${t.remote}:`, error.message);
 }
+
+// ── Dexie hooks ────────────────────────────────────────────────────────
 
 function attachHooks() {
   if (hooksAttached) return;
@@ -176,28 +202,20 @@ function attachHooks() {
 
     table.hook(
       "deleting",
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      function (this: any, primKey: string) {
+      function (
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        this: any,
+        primKey: string,
+        obj: Record<string, unknown>,
+      ) {
         if (suppressSync || !currentUserId) return;
         this.onsuccess = () => {
-          void pushDelete(t, primKey);
+          void pushTombstone(t, primKey, obj);
         };
       },
     );
   }
 }
-
-// ════════════════════════════════════════════════════════════════════════
-// API pubblica
-// ════════════════════════════════════════════════════════════════════════
-
-async function reconcileAll(): Promise<void> {
-  for (const t of SYNCED_TABLES) {
-    await reconcileTable(t);
-  }
-}
-
-let onlineListenerAttached = false;
 
 function attachOnlineListener() {
   if (onlineListenerAttached) return;
@@ -208,6 +226,8 @@ function attachOnlineListener() {
     }
   });
 }
+
+// ── API pubblica ───────────────────────────────────────────────────────
 
 export async function startSync(userId: string): Promise<void> {
   if (!supabase) return;
@@ -223,7 +243,5 @@ export function stopSync(): void {
 
 export async function fullPull(): Promise<void> {
   if (!supabase || !currentUserId) return;
-  for (const t of SYNCED_TABLES) {
-    await pullAndReplace(t);
-  }
+  await reconcileAll();
 }

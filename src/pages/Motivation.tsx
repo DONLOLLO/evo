@@ -14,7 +14,9 @@ import {
   X,
   Trophy,
   Compass,
+  Pencil,
 } from "lucide-react";
+import type { Victory } from "../types";
 
 type View = "laws" | "vision" | "victories";
 
@@ -27,7 +29,9 @@ export default function Motivation() {
   const [sosOpen, setSosOpen] = useState(false);
   const [editingVision, setEditingVision] = useState(false);
   const [visionText, setVisionText] = useState("");
-  const [showNewVictory, setShowNewVictory] = useState(false);
+  const [victorySheet, setVictorySheet] = useState<
+    { mode: "new" } | { mode: "edit"; victory: Victory } | null
+  >(null);
   const [sosNonce, setSosNonce] = useState(0);
 
   const sortedLaws = useMemo(
@@ -237,12 +241,22 @@ export default function Motivation() {
                         {v.story}
                       </p>
                     </div>
-                    <button
-                      onClick={() => deleteVictory(v.id)}
-                      className="p-1.5 text-ink-quiet active:scale-90"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                    <div className="flex flex-col gap-0.5">
+                      <button
+                        onClick={() => setVictorySheet({ mode: "edit", victory: v })}
+                        className="p-1.5 text-ink-quiet active:scale-90"
+                        aria-label="Modifica vittoria"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      <button
+                        onClick={() => deleteVictory(v.id)}
+                        className="p-1.5 text-ink-quiet active:scale-90"
+                        aria-label="Cancella vittoria"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   </div>
                 </motion.li>
               ))}
@@ -257,7 +271,7 @@ export default function Motivation() {
             )}
           </ul>
           <button
-            onClick={() => setShowNewVictory(true)}
+            onClick={() => setVictorySheet({ mode: "new" })}
             className="fixed right-5 z-30 w-14 h-14 rounded-full bg-white text-bg-deep flex items-center justify-center active:scale-90 transition-transform"
             style={{
               bottom: "calc(env(safe-area-inset-bottom) + 96px)",
@@ -342,30 +356,51 @@ export default function Motivation() {
         )}
       </AnimatePresence>
 
-      {showNewVictory && (
-        <NewVictorySheet onClose={() => setShowNewVictory(false)} />
+      {victorySheet && (
+        <VictorySheet
+          victory={victorySheet.mode === "edit" ? victorySheet.victory : undefined}
+          onClose={() => setVictorySheet(null)}
+        />
       )}
     </Layout>
   );
 }
 
-function NewVictorySheet({ onClose }: { onClose: () => void }) {
-  const [title, setTitle] = useState("");
-  const [story, setStory] = useState("");
+function VictorySheet({
+  victory,
+  onClose,
+}: {
+  victory?: Victory;
+  onClose: () => void;
+}) {
+  const editing = !!victory;
+  const [title, setTitle] = useState(victory?.title ?? "");
+  const [story, setStory] = useState(victory?.story ?? "");
 
   async function save() {
     if (!title.trim()) return;
-    await db.victories.add({
-      id: uid("v-"),
-      title: title.trim(),
-      story: story.trim(),
-      at: Date.now(),
-    });
+    if (editing && victory) {
+      await db.victories.update(victory.id, {
+        title: title.trim(),
+        story: story.trim(),
+      });
+    } else {
+      await db.victories.add({
+        id: uid("v-"),
+        title: title.trim(),
+        story: story.trim(),
+        at: Date.now(),
+      });
+    }
     onClose();
   }
 
   return (
-    <Sheet onClose={onClose} title="Nuova vittoria" orb="#FFD479">
+    <Sheet
+      onClose={onClose}
+      title={editing ? "Modifica vittoria" : "Nuova vittoria"}
+      orb="#FFD479"
+    >
       <input
         autoFocus
         value={title}

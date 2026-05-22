@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { motion, AnimatePresence } from "framer-motion";
 import { db } from "../db/database";
+import { uid } from "../lib/date";
 import Layout from "../components/Layout";
 import {
   Radar,
@@ -43,6 +44,7 @@ export default function StatsPage() {
     if (next === stat.value) return;
     await db.stats.update(stat.id, { value: next, updatedAt: Date.now() });
     await db.statHistory.add({
+      id: uid("sh-"),
       statId: stat.id,
       value: next,
       at: Date.now(),
