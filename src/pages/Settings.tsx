@@ -6,6 +6,7 @@ import Layout from "../components/Layout";
 import AreasSheet from "../components/AreasSheet";
 import AccountSheet from "../components/AccountSheet";
 import WeeklyReviewSheet from "../components/WeeklyReviewSheet";
+import NotificationsSheet from "../components/NotificationsSheet";
 import { useAuthStore } from "../stores/useAuthStore";
 import { weekStartISO } from "../lib/date";
 import {
@@ -38,7 +39,7 @@ export default function Settings() {
   const syncing = useAuthStore((s) => s.syncing);
 
   const [openSheet, setOpenSheet] = useState<
-    "areas" | "account" | "review" | null
+    "areas" | "account" | "review" | "notifications" | null
   >(null);
   const weeklyReviews = useLiveQuery(() => db.weeklyReviews.toArray(), []);
   const currentWeekStart = weekStartISO();
@@ -133,9 +134,8 @@ export default function Settings() {
           icon: Bell,
           title: "Notifiche",
           subtitle: "Mattina · sera · routine",
-          badge: "in arrivo",
           accent: "#e89a5d",
-          disabled: true,
+          onClick: () => setOpenSheet("notifications"),
         },
         {
           icon: Globe,
@@ -229,6 +229,9 @@ export default function Settings() {
           existing={thisWeekReview}
           onClose={() => setOpenSheet(null)}
         />
+      )}
+      {openSheet === "notifications" && (
+        <NotificationsSheet onClose={() => setOpenSheet(null)} />
       )}
     </Layout>
   );

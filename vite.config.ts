@@ -8,6 +8,12 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
+      strategies: "injectManifest",
+      srcDir: "src",
+      filename: "sw.ts",
+      injectManifest: {
+        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+      },
       includeAssets: ["favicon.svg", "apple-touch-icon.png"],
       manifest: {
         name: "EVO",
@@ -29,9 +35,6 @@ export default defineConfig({
             purpose: "any maskable",
           },
         ],
-      },
-      workbox: {
-        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
       },
     }),
   ],
