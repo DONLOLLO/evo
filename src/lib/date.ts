@@ -46,6 +46,15 @@ export function daysBetween(fromISO: string, toISO: string): number {
   return Math.round((b - a) / 86400000);
 }
 
+/** Lunedì della settimana che contiene la data fornita. */
+export function weekStartISO(d: Date = new Date()): string {
+  const day = d.getDay(); // 0=Dom..6=Sab
+  const diff = day === 0 ? -6 : 1 - day; // distanza da Lunedì
+  const monday = new Date(d);
+  monday.setDate(d.getDate() + diff);
+  return todayISO(monday);
+}
+
 export function isoToShort(iso: string): string {
   const today = todayISO();
   if (iso === today) return "Oggi";

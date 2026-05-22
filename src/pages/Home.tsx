@@ -4,8 +4,12 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { motion, AnimatePresence } from "framer-motion";
 import { db } from "../db/database";
 import Layout from "../components/Layout";
-import { todayISO, currentWeekday, timeOfDay, dayName, daysBetween, uid } from "../lib/date";
+import { todayISO, currentWeekday, timeOfDay, dayName, daysBetween, uid, weekStartISO } from "../lib/date";
 import { useAppStore } from "../stores/useAppStore";
+import WeeklyReviewSheet, {
+  shouldPromptWeeklyReview,
+  lastReviewWeekStart,
+} from "../components/WeeklyReviewSheet";
 import { Check, ChevronRight, Moon, Sun, Sunrise, Target, Flame, MessageCircle, Phone, Mail, Coffee, MoreHorizontal, Network } from "lucide-react";
 import type { Mission, Mood, TouchChannel, Challenge, ChallengeStatus } from "../types";
 
@@ -65,6 +69,15 @@ export default function Home() {
   const challengeLogs = useLiveQuery(() => db.challengeLogs.toArray(), []);
   const touchpoints = useLiveQuery(() => db.touchpoints.toArray(), []);
   const people = useLiveQuery(() => db.people.toArray(), []);
+  const weeklyReviews = useLiveQuery(() => db.weeklyReviews.toArray(), []);
+  const [reviewOpen, setReviewOpen] = useState(false);
+
+  const showReviewBanner = useMemo(
+    () =>
+      shouldPromptWeeklyReview(new Date(), lastReviewWeekStart(weeklyReviews)),
+    [weeklyReviews],
+  );
+  const currentWeekStart = weekStartISO();
 
   // Sfide attive
   const activeChallenge = useMemo(() => {
@@ -172,6 +185,31 @@ export default function Home() {
           </p>
         )}
       </section>
+
+      {/* ── BANNER REVIEW SETTIMANALE (domenica sera / lunedì) ────────── */}
+      {showReviewBanner && (
+        <motion.button
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          onClick={() => setReviewOpen(true)}
+          className="card mb-6 relative overflow-hidden w-full text-left active:scale-[0.99] transition-transform"
+          style={{ borderColor: "rgba(185,164,255,0.45)" }}
+        >
+          <div
+            className="absolute -top-16 -right-16 w-44 h-44 rounded-full opacity-30 blur-3xl pointer-events-none"
+            style={{ background: "#b9a4ff" }}
+          />
+          <p className="eyebrow" style={{ color: "#b9a4ff" }}>
+            Review della settimana
+          </p>
+          <h2 className="display text-[22px] leading-tight mt-2 text-ink">
+            Chiudi la settimana
+          </h2>
+          <p className="text-[13.5px] text-ink-dim mt-2 leading-relaxed">
+            5 minuti per guardarti indietro e decidere cosa cambiare.
+          </p>
+        </motion.button>
+      )}
 
       {/* ── LEGGE DEL GIORNO — card editoriale ───────────────────────── */}
       {dailyLaw && (
@@ -415,6 +453,16 @@ export default function Home() {
           />
         </div>
       </section>
+
+      {reviewOpen && (
+        <WeeklyReviewSheet
+          weekStart={currentWeekStart}
+          existing={(weeklyReviews ?? []).find(
+            (w) => w.weekStart === currentWeekStart,
+          )}
+          onClose={() => setReviewOpen(false)}
+        />
+      )}
     </Layout>
   );
 }

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import {
   BarChart3,
   Heart,
@@ -12,7 +12,6 @@ import {
 import { useAppStore } from "../stores/useAppStore";
 import { useAuthStore } from "../stores/useAuthStore";
 import AccountSheet from "./AccountSheet";
-import AreasSheet from "./AreasSheet";
 
 export default function TopBar({ title }: { title: string }) {
   const streak = useAppStore((s) => s.settings?.streakCount ?? 0);
@@ -20,7 +19,8 @@ export default function TopBar({ title }: { title: string }) {
   const session = useAuthStore((s) => s.session);
   const syncing = useAuthStore((s) => s.syncing);
   const [showAccount, setShowAccount] = useState(false);
-  const [showAreas, setShowAreas] = useState(false);
+  const location = useLocation();
+  const onSettings = location.pathname === "/settings";
 
   const cloudOn = !!session;
 
@@ -34,13 +34,15 @@ export default function TopBar({ title }: { title: string }) {
               <Flame size={12} strokeWidth={2.2} />
               <span>{streak}</span>
             </div>
-            <button
-              onClick={() => setShowAreas(true)}
-              className="p-2 text-ink-muted active:scale-90 transition-transform"
-              aria-label="Aree"
+            <Link
+              to="/settings"
+              className={`p-2 active:scale-90 transition-transform ${
+                onSettings ? "text-ink" : "text-ink-muted"
+              }`}
+              aria-label="Impostazioni"
             >
               <Settings2 size={19} strokeWidth={1.8} />
-            </button>
+            </Link>
             {cloudConfigured && (
               <button
                 onClick={() => setShowAccount(true)}
@@ -85,7 +87,6 @@ export default function TopBar({ title }: { title: string }) {
         </div>
       </header>
       {showAccount && <AccountSheet onClose={() => setShowAccount(false)} />}
-      {showAreas && <AreasSheet onClose={() => setShowAreas(false)} />}
     </>
   );
 }

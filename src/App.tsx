@@ -10,6 +10,7 @@ import Roadmap from "./pages/Roadmap";
 import Stats from "./pages/Stats";
 import Motivation from "./pages/Motivation";
 import Rete from "./pages/Rete";
+import Settings from "./pages/Settings";
 
 export default function App() {
   const ready = useAppStore((s) => s.ready);
@@ -51,6 +52,7 @@ export default function App() {
       <Route path="/rete" element={<Rete />} />
       <Route path="/stats" element={<Stats />} />
       <Route path="/motivation" element={<Motivation />} />
+      <Route path="/settings" element={<Settings />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

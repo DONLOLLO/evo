@@ -43,6 +43,7 @@ const SYNCED_TABLES: SyncedTable[] = [
   { dexie: "routineChecks", remote: "routine_checks" },
   { dexie: "checkins", remote: "checkins" },
   { dexie: "challengeLogs", remote: "challenge_logs" },
+  { dexie: "weeklyReviews", remote: "weekly_reviews" },
 ];
 
 let suppressSync = false;

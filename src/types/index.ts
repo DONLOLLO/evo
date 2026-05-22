@@ -200,6 +200,26 @@ export interface ChallengeLog {
   at: number;
 }
 
+// ─── WEEKLY REVIEW ──────────────────────────────────────────────────────
+export interface WeeklyReview {
+  id: string;
+  weekStart: string; // ISO YYYY-MM-DD (Lunedì)
+  // Numeri rilevati al momento del salvataggio
+  missionsDone: number;
+  missionsTotal: number;
+  routinesDone: number;
+  routinesTotal: number;
+  victoriesCount: number;
+  moodGreat: number;
+  moodOk: number;
+  moodRough: number;
+  // Riflessione
+  wentWell: string;
+  didntGo: string;
+  changeNext: string;
+  closedAt: number;
+}
+
 // ─── SETTINGS ───────────────────────────────────────────────────────────
 export interface Settings {
   id: "main";

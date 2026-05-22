@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { db } from "../db/database";
 import Layout from "../components/Layout";
 import { Sheet } from "./Missions";
+import SOSModal from "../components/SOSModal";
 import { uid } from "../lib/date";
 import {
   Sparkles,
@@ -11,7 +12,6 @@ import {
   ChevronRight,
   Plus,
   Trash2,
-  X,
   Trophy,
   Compass,
   Pencil,
@@ -32,7 +32,6 @@ export default function Motivation() {
   const [victorySheet, setVictorySheet] = useState<
     { mode: "new" } | { mode: "edit"; victory: Victory } | null
   >(null);
-  const [sosNonce, setSosNonce] = useState(0);
 
   const sortedLaws = useMemo(
     () => (laws ?? []).slice().sort((a, b) => a.order - b.order),
@@ -45,11 +44,6 @@ export default function Motivation() {
   function nextLaw() {
     setLawIdx((i) => (i + 1) % sortedLaws.length);
   }
-
-  const sosLaw = useMemo(() => {
-    if (sortedLaws.length === 0) return null;
-    return sortedLaws[Math.floor(Math.random() * sortedLaws.length)];
-  }, [sortedLaws, sosNonce]);
 
   async function saveVision() {
     await db.vision.update("main", {
@@ -286,10 +280,7 @@ export default function Motivation() {
       {/* ── SOS bottone (sempre visibile) ─────────────────────────────── */}
       {view !== "victories" && (
         <button
-          onClick={() => {
-            setSosNonce((n) => n + 1);
-            setSosOpen(true);
-          }}
+          onClick={() => setSosOpen(true)}
           className="fixed left-1/2 -translate-x-1/2 z-30 px-6 py-3.5 rounded-full font-bold text-[13px] tracking-wider inline-flex items-center gap-2 transition-all active:scale-95"
           style={{
             bottom: "calc(env(safe-area-inset-bottom) + 96px)",
@@ -302,59 +293,8 @@ export default function Motivation() {
         </button>
       )}
 
-      {/* ── SOS modal ─────────────────────────────────────────────────── */}
-      <AnimatePresence>
-        {sosOpen && sosLaw && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-7"
-            style={{
-              background:
-                "radial-gradient(ellipse at center, rgba(255,143,164,0.25) 0%, rgba(2,2,5,0.95) 60%)",
-              backdropFilter: "blur(40px)",
-            }}
-            onClick={() => setSosOpen(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              transition={{ type: "spring", stiffness: 280, damping: 26 }}
-              className="max-w-md text-center"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <p className="eyebrow text-accent mb-6">Respira. Ricorda.</p>
-              <h2 className="display text-[34px] leading-tight mb-5 text-ink">
-                {sosLaw.title}
-              </h2>
-              <p className="text-[17px] text-ink-dim mb-10 leading-relaxed">
-                {sosLaw.body}
-              </p>
-              {vision?.text && (
-                <div className="pt-7 border-t-[0.5px] border-white/15">
-                  <p
-                    className="eyebrow mb-3"
-                    style={{ color: "#C4A8FF" }}
-                  >
-                    Perché lo fai
-                  </p>
-                  <p className="text-[14.5px] text-ink-dim italic leading-relaxed">
-                    {vision.text}
-                  </p>
-                </div>
-              )}
-              <button
-                onClick={() => setSosOpen(false)}
-                className="mt-10 w-11 h-11 rounded-full glass-thin flex items-center justify-center mx-auto active:scale-90"
-              >
-                <X size={20} />
-              </button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* ── SOS modal (mood-based) ────────────────────────────────────── */}
+      {sosOpen && <SOSModal onClose={() => setSosOpen(false)} />}
 
       {victorySheet && (
         <VictorySheet

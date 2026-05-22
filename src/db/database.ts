@@ -19,6 +19,7 @@ import type {
   Touchpoint,
   Challenge,
   ChallengeLog,
+  WeeklyReview,
 } from "../types";
 import { uid } from "../lib/date";
 
@@ -42,6 +43,7 @@ export class LBDatabase extends Dexie {
   touchpoints!: Table<Touchpoint, string>;
   challenges!: Table<Challenge, string>;
   challengeLogs!: Table<ChallengeLog, string>;
+  weeklyReviews!: Table<WeeklyReview, string>;
 
   constructor() {
     super("lb-personal-app");
@@ -126,6 +128,30 @@ export class LBDatabase extends Dexie {
           await tx.table(name).bulkAdd(remapped);
         }
       });
+
+    // v4: weeklyReviews — riflessione settimanale (1 per weekStart).
+    this.version(4).stores({
+      areas: "id, order",
+      stats: "id, order",
+      statHistory: "id, statId, at",
+      routineBlocks: "id, order",
+      routineChecks: "id, [blockId+date], date",
+      skills: "id, areaId, parentId, order",
+      skillResources: "id, skillId, done",
+      skillActions: "id, skillId",
+      missions: "id, priority, done, areaId, skillId, pinnedForDate, dueDate, order, createdAt",
+      roadmap: "id, areaId, phase, order",
+      laws: "id, order",
+      victories: "id, at",
+      vision: "id",
+      checkins: "id, date",
+      settings: "id",
+      people: "id, name, createdAt",
+      touchpoints: "id, personId, dueDate, done, createdAt",
+      challenges: "id, active, startDate, endDate, createdAt",
+      challengeLogs: "id, [challengeId+date], challengeId, date",
+      weeklyReviews: "id, weekStart, closedAt",
+    });
   }
 }
 
