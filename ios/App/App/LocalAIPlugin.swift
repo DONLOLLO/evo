@@ -30,13 +30,13 @@ public class LocalAIPlugin: CAPPlugin, CAPBridgedPlugin {
     ]
 
     // ── Configurazione modello ─────────────────────────────────────────
-    // Stessa scelta di Sparq. Per upgradare a 1.5B basta cambiare queste
-    // due costanti e ricompilare — niente altro nel codice cambia.
+    // Per swappare modello cambia solo queste tre costanti. Il file vecchio
+    // resta nei Documents come orfano (rimosso da cleanupOrphanedModels()).
     private let modelURL = URL(string:
-        "https://huggingface.co/litert-community/Qwen2.5-0.5B-Instruct/resolve/main/Qwen2.5-0.5B-Instruct_multi-prefill-seq_q8_ekv1280.task"
+        "https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct/resolve/main/Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv1280.task"
     )!
-    private let modelFilename = "Qwen2.5-0.5B-Instruct_multi-prefill-seq_q8_ekv1280.task"
-    private let modelName = "qwen-2.5-0.5b-instruct-q8"
+    private let modelFilename = "Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv1280.task"
+    private let modelName = "qwen-2.5-1.5b-instruct-q8"
 
     // ── Stato interno ──────────────────────────────────────────────────
     private enum ModelStatus: String {
@@ -81,12 +81,26 @@ public class LocalAIPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     private func prepareModel() async {
+        cleanupOrphanedModels()
         if FileManager.default.fileExists(atPath: modelPath.path) {
             await loadInference()
         } else {
             await downloadModel()
             if currentStatus != .error {
                 await loadInference()
+            }
+        }
+    }
+
+    /// Elimina eventuali file `.task` nei Documents che non sono il modello corrente.
+    /// Evita di sprecare 500MB-1GB se cambiamo modello (es. 0.5B → 1.5B).
+    private func cleanupOrphanedModels() {
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        guard let contents = try? FileManager.default.contentsOfDirectory(at: docs, includingPropertiesForKeys: nil) else { return }
+        for url in contents {
+            if url.pathExtension == "task" && url.lastPathComponent != modelFilename {
+                try? FileManager.default.removeItem(at: url)
+                print("[LocalAI] Pulito modello orfano: \(url.lastPathComponent)")
             }
         }
     }
