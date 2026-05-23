@@ -99,25 +99,31 @@ export interface BrainDumpContext {
 
 // ── Prompt building ────────────────────────────────────────────────────
 
-const SYSTEM_PROMPT = `Sei un parser per EVO, un'app di produttività personale.
-Da un brain dump in italiano, estrai entità strutturate.
+const SYSTEM_PROMPT = `Sei un parser JSON. Trasformi un testo italiano in un array JSON.
 
-Entità possibili (campo "type"):
-- "mission": cosa da fare singola. Campi: title (obbligatorio), priority ("high"|"mid"|"low"), areaName, notes.
-- "routine_block": attività ricorrente con orario. Campi: title (obbligatorio), startTime ("HH:MM"), endTime, days (array di numeri 0=Dom..6=Sab), description.
-- "skill": competenza da sviluppare. Campi: name (obbligatorio), areaName, description.
-- "skill_resource": libro/video/corso legato a una skill. Campi: skillName, title, type ("book"|"video"|"course"|"person"|"link"), url.
-- "person": persona nella rete. Campi: name (obbligatorio), role, channel ("message"|"call"|"email"|"in-person"|"other").
-- "touchpoint": follow-up da fare con una persona. Campi: personName, dueDate ("YYYY-MM-DD"), channel, message.
-- "victory": momento di successo passato. Campi: title (obbligatorio), story.
-- "area": nuova area di vita. Campi: name, color (hex es. "#5dd4c4").
+REGOLA ASSOLUTA: la tua risposta DEVE iniziare con [ e finire con ].
+NIENTE prosa. NIENTE markdown. NIENTE backticks. SOLO un array JSON.
 
-Regole:
-- Se l'utente nomina "lunedì mercoledì venerdì" → days [1,3,5]. 0=Dom, 1=Lun, ..., 6=Sab.
-- Date relative ("oggi", "domani", "settimana prossima") → convertile in YYYY-MM-DD usando il context.today.
-- Se ambiguo, scegli il tipo più probabile.
-- Restituisci SOLO un array JSON valido, niente altro testo.
-- Niente markdown, niente backticks. Solo JSON puro.`;
+Tipi consentiti (campo "type"):
+- "mission": title, priority ("high"|"mid"|"low"), areaName, notes
+- "routine_block": title, startTime ("HH:MM"), endTime, days (array 0=Dom..6=Sab), description
+- "skill": name, areaName, description
+- "skill_resource": skillName, title, type ("book"|"video"|"course"|"person"|"link"), url
+- "person": name, role, channel ("message"|"call"|"email"|"in-person"|"other")
+- "touchpoint": personName, dueDate ("YYYY-MM-DD"), channel, message
+- "victory": title, story
+- "area": name, color (hex es. "#5dd4c4")
+
+Esempio. Input: "Allenamento lun-mer-ven alle 7. Devo chiamare Marco entro venerdì."
+Output esatto:
+[{"type":"routine_block","title":"Allenamento","startTime":"07:00","days":[1,3,5]},{"type":"touchpoint","personName":"Marco","channel":"call"}]
+
+Regole pratiche:
+- Giorni: lun=1, mar=2, mer=3, gio=4, ven=5, sab=6, dom=0. "ogni giorno" = [0,1,2,3,4,5,6].
+- Orari: usa sempre formato 24h HH:MM ("ore 7" → "07:00", "le 23:30" → "23:30").
+- "sveglia" / "dormire" / "andare a letto" → routine_block.
+- Se non sei sicuro del tipo, scegli il più probabile.
+- Niente entità → array vuoto [].`;
 
 export function buildPrompt(rawText: string, ctx: BrainDumpContext): string {
   const today = todayISO();
@@ -125,6 +131,8 @@ export function buildPrompt(rawText: string, ctx: BrainDumpContext): string {
   const skillNames = ctx.skills.map((s) => s.name).join(", ") || "(nessuna)";
   const peopleNames = ctx.people.map((p) => p.name).join(", ") || "(nessuna)";
 
+  // Il trucco finale: chiudiamo il prompt con "[" così il modello
+  // è quasi forzato a continuare con JSON array.
   return `${SYSTEM_PROMPT}
 
 context.today: ${today}
@@ -135,20 +143,42 @@ context.people: ${peopleNames}
 INPUT:
 ${rawText.trim()}
 
-OUTPUT (solo JSON array):`;
+OUTPUT JSON:
+[`;
 }
 
 // ── Response parsing ──────────────────────────────────────────────────
 
 export function parseResponse(text: string): Extracted[] {
-  // Tenta di trovare il primo array JSON nel testo (l'LLM a volte aggiunge prosa).
-  const m = text.match(/\[[\s\S]*\]/);
-  if (!m) return [];
+  // Visto che il prompt finisce con "[", il modello potrebbe restituire
+  // solo "...]" senza la "[". Re-aggiungiamola.
+  let candidate = text.trim();
+  if (!candidate.startsWith("[") && !candidate.includes("[")) {
+    candidate = "[" + candidate;
+  }
+  // Rimuovi markdown code fences (```json ... ``` o ``` ... ```)
+  candidate = candidate.replace(/^```(?:json|JSON)?\s*/g, "");
+  candidate = candidate.replace(/\s*```\s*$/g, "");
+  candidate = candidate.trim();
+
+  // Cerca il primo array JSON nel testo
+  let arrayText = extractJsonArray(candidate);
+  if (!arrayText) return [];
+
+  // Pulizia frequente di outpur LLM: trailing commas, virgolette tipografiche
+  arrayText = arrayText
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/,\s*([}\]])/g, "$1");
+
   let parsed: unknown;
   try {
-    parsed = JSON.parse(m[0]);
+    parsed = JSON.parse(arrayText);
   } catch {
-    return [];
+    // Tentativo finale: prova a parsare singoli oggetti separati da virgola
+    const objects = extractObjects(arrayText);
+    if (objects.length === 0) return [];
+    parsed = objects;
   }
   if (!Array.isArray(parsed)) return [];
 
@@ -161,6 +191,81 @@ export function parseResponse(text: string): Extracted[] {
 
     const normalized = normalizeOne(type, obj);
     if (normalized) out.push(normalized);
+  }
+  return out;
+}
+
+/** Trova un array JSON bilanciato (gestisce parentesi annidate). */
+function extractJsonArray(text: string): string | null {
+  const start = text.indexOf("[");
+  if (start < 0) return null;
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (escape) {
+      escape = false;
+      continue;
+    }
+    if (ch === "\\") {
+      escape = true;
+      continue;
+    }
+    if (ch === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+    if (ch === "[") depth++;
+    else if (ch === "]") {
+      depth--;
+      if (depth === 0) {
+        return text.slice(start, i + 1);
+      }
+    }
+  }
+  // Array non chiuso: chiudilo a forza alla fine.
+  return text.slice(start) + (depth > 0 ? "]".repeat(depth) : "");
+}
+
+/** Estrae oggetti `{...}` separati da virgole, ignora il resto. */
+function extractObjects(text: string): unknown[] {
+  const out: unknown[] = [];
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+  let start = -1;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (escape) {
+      escape = false;
+      continue;
+    }
+    if (ch === "\\") {
+      escape = true;
+      continue;
+    }
+    if (ch === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+    if (ch === "{") {
+      if (depth === 0) start = i;
+      depth++;
+    } else if (ch === "}") {
+      depth--;
+      if (depth === 0 && start >= 0) {
+        const objText = text.slice(start, i + 1);
+        try {
+          out.push(JSON.parse(objText));
+        } catch {
+          // skip
+        }
+        start = -1;
+      }
+    }
   }
   return out;
 }

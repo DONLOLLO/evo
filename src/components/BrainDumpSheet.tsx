@@ -39,6 +39,7 @@ export default function BrainDumpSheet({ onClose }: { onClose: () => void }) {
   const [extracted, setExtracted] = useState<Extracted[]>([]);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [error, setError] = useState("");
+  const [rawOutput, setRawOutput] = useState("");
   const [created, setCreated] = useState(0);
   const [skipped, setSkipped] = useState(0);
   const [modelStatus, setModelStatus] = useState<LocalAIStatusResult | null>(
@@ -119,8 +120,9 @@ export default function BrainDumpSheet({ onClose }: { onClose: () => void }) {
       const res = await LocalAI.generate({
         prompt,
         maxTokens: 1024,
-        temperature: 0.3,
+        temperature: 0.2,
       });
+      setRawOutput(res.text);
       const parsed = parseResponse(res.text);
       if (parsed.length === 0) {
         setError(
@@ -362,6 +364,27 @@ Ieri ho chiuso la demo davanti a 30 persone.`}
           <p className="text-ink-muted text-[13px] max-w-[280px] leading-relaxed mb-5">
             {error}
           </p>
+
+          {rawOutput && (
+            <details className="w-full text-left mb-5">
+              <summary className="text-ink-muted text-[11.5px] uppercase tracking-wider cursor-pointer active:opacity-70">
+                Output raw del modello (debug)
+              </summary>
+              <pre
+                className="mt-2 p-3 rounded-xl text-[11px] overflow-x-auto whitespace-pre-wrap leading-relaxed"
+                style={{
+                  background: "rgba(255,255,255,0.04)",
+                  border: "0.5px solid rgba(255,255,255,0.08)",
+                  color: "rgba(255,255,255,0.65)",
+                  maxHeight: "30vh",
+                  overflowY: "auto",
+                }}
+              >
+                {rawOutput}
+              </pre>
+            </details>
+          )}
+
           <button
             onClick={() => setStage("input")}
             className="btn-ghost px-6"
