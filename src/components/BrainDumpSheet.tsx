@@ -1,8 +1,11 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../db/database";
 import { Sheet } from "../pages/Missions";
-import LocalAI, { isLocalAIAvailable } from "../plugins/local-ai";
+import LocalAI, {
+  isLocalAIAvailable,
+  type LocalAIStatusResult,
+} from "../plugins/local-ai";
 import {
   buildPrompt,
   parseResponse,
@@ -11,7 +14,7 @@ import {
   entityKindLabel,
   type Extracted,
 } from "../lib/brainDump";
-import { Sparkles, Check, AlertTriangle, RotateCw } from "lucide-react";
+import { Sparkles, Check, AlertTriangle, RotateCw, Download } from "lucide-react";
 
 type Stage = "input" | "processing" | "preview" | "done" | "error";
 
@@ -38,15 +41,66 @@ export default function BrainDumpSheet({ onClose }: { onClose: () => void }) {
   const [error, setError] = useState("");
   const [created, setCreated] = useState(0);
   const [skipped, setSkipped] = useState(0);
+  const [modelStatus, setModelStatus] = useState<LocalAIStatusResult | null>(
+    null,
+  );
+  const pollTimerRef = useRef<number | null>(null);
 
   const native = isLocalAIAvailable();
+
+  // Poll lo stato del modello quando siamo in modalità native
+  useEffect(() => {
+    if (!native) return;
+    let cancelled = false;
+
+    async function poll() {
+      try {
+        const s = await LocalAI.status();
+        if (!cancelled) setModelStatus(s);
+        if (cancelled) return;
+        // Continua il poll finché non è ready/error
+        if (s.status !== "ready" && s.status !== "error") {
+          pollTimerRef.current = window.setTimeout(poll, 800);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setModelStatus({
+            ready: false,
+            status: "error",
+            error: e instanceof Error ? e.message : String(e),
+          });
+        }
+      }
+    }
+    poll();
+
+    return () => {
+      cancelled = true;
+      if (pollTimerRef.current) window.clearTimeout(pollTimerRef.current);
+    };
+  }, [native]);
+
+  const modelReady = modelStatus?.status === "ready";
+  const modelBusy =
+    modelStatus?.status === "downloading" || modelStatus?.status === "loading";
 
   async function process() {
     if (!text.trim()) return;
     if (!native) {
       setError(
         "Il Brain Dump funziona solo nell'app nativa iOS/Android. " +
-          "Sul browser non è disponibile (servirebbe scaricare un LLM da 1GB nel browser).",
+          "Sul browser non è disponibile (servirebbe scaricare un LLM da ~500MB nel browser).",
+      );
+      setStage("error");
+      return;
+    }
+    if (!modelReady) {
+      setError(
+        modelStatus?.status === "downloading"
+          ? "Modello in scaricamento, riprova tra poco."
+          : modelStatus?.status === "loading"
+            ? "Modello in caricamento, attendi qualche secondo."
+            : modelStatus?.error ?? "Modello non pronto.",
       );
       setStage("error");
       return;
@@ -135,6 +189,10 @@ export default function BrainDumpSheet({ onClose }: { onClose: () => void }) {
             </div>
           )}
 
+          {native && modelStatus && !modelReady && (
+            <ModelStatusBanner status={modelStatus} />
+          )}
+
           <textarea
             autoFocus
             value={text}
@@ -154,10 +212,15 @@ Ieri ho chiuso la demo davanti a 30 persone.`}
             </button>
             <button
               onClick={process}
-              disabled={!text.trim()}
+              disabled={!text.trim() || (native && !modelReady)}
               className="btn-primary inline-flex items-center justify-center gap-2 disabled:opacity-50"
             >
-              <Sparkles size={15} /> Estrai
+              <Sparkles size={15} />{" "}
+              {native && modelBusy
+                ? modelStatus?.status === "downloading"
+                  ? "Scarico modello..."
+                  : "Carico..."
+                : "Estrai"}
             </button>
           </div>
         </>
@@ -309,4 +372,81 @@ Ieri ho chiuso la demo davanti a 30 persone.`}
       )}
     </Sheet>
   );
+}
+
+function ModelStatusBanner({ status }: { status: LocalAIStatusResult }) {
+  if (status.status === "downloading") {
+    const pct = Math.round((status.progress ?? 0) * 100);
+    return (
+      <div
+        className="card mb-4 flex items-start gap-2.5 text-[12.5px]"
+        style={{
+          borderColor: "rgba(185,164,255,0.4)",
+          background: "rgba(185,164,255,0.06)",
+        }}
+      >
+        <Download
+          size={14}
+          className="text-accent flex-shrink-0 mt-0.5 animate-pulse"
+        />
+        <div className="flex-1 min-w-0">
+          <p className="text-ink mb-1.5">
+            Scarico il modello AI · {pct}%
+          </p>
+          <div className="h-1 rounded-full overflow-hidden bg-white/8">
+            <div
+              className="h-full transition-all rounded-full"
+              style={{
+                width: `${pct}%`,
+                background:
+                  "linear-gradient(90deg, #b9a4ff, #5dd4c4)",
+              }}
+            />
+          </div>
+          <p className="text-ink-quiet text-[11px] mt-1.5">
+            Una volta sola, ~500 MB. Poi è offline per sempre.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (status.status === "loading") {
+    return (
+      <div
+        className="card mb-4 inline-flex items-start gap-2.5 text-[12.5px]"
+        style={{
+          borderColor: "rgba(185,164,255,0.4)",
+          background: "rgba(185,164,255,0.06)",
+        }}
+      >
+        <Sparkles size={14} className="text-accent flex-shrink-0 mt-0.5 animate-pulse" />
+        <span className="text-ink-dim leading-snug">
+          Carico il modello in memoria...
+        </span>
+      </div>
+    );
+  }
+
+  if (status.status === "error") {
+    return (
+      <div
+        className="card mb-4 inline-flex items-start gap-2.5 text-[12.5px]"
+        style={{
+          borderColor: "rgba(255,107,122,0.4)",
+          background: "rgba(255,107,122,0.06)",
+        }}
+      >
+        <AlertTriangle
+          size={14}
+          className="text-sys-red flex-shrink-0 mt-0.5"
+        />
+        <span className="text-ink-dim leading-snug">
+          {status.error ?? "Errore caricamento modello."}
+        </span>
+      </div>
+    );
+  }
+
+  return null;
 }

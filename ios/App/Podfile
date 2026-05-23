@@ -1,0 +1,18 @@
+platform :ios, '15.0'
+use_frameworks!
+
+install! 'cocoapods', :disable_input_output_paths => true
+
+def capacitor_pods
+  # Capacitor 7+ usa Swift Package Manager per i suoi plugin core,
+  # quindi qui non ci sono i Capacitor pods classici. Aggiungiamo solo
+  # le dipendenze native dell'app.
+end
+
+target 'App' do
+  capacitor_pods
+
+  # MediaPipe LLM Inference (stesso engine di flutter_gemma su Sparq)
+  pod 'MediaPipeTasksGenAI'
+  pod 'MediaPipeTasksGenAIC'
+end

@@ -14,19 +14,29 @@ import { Capacitor, registerPlugin } from "@capacitor/core";
 // le chiamate ritornano `available: false`.
 // ════════════════════════════════════════════════════════════════════════
 
+export type LocalAIStatus =
+  | "idle"
+  | "downloading"
+  | "loading"
+  | "ready"
+  | "error";
+
+export interface LocalAIStatusResult {
+  ready: boolean;
+  status: LocalAIStatus;
+  modelName?: string;
+  progress?: number; // 0..1 durante downloading
+  error?: string | null;
+}
+
 export interface LocalAIPlugin {
   /** Sanity check del bridge native. */
   echo(options: { value: string }): Promise<{ value: string }>;
 
   /** Stato del modello: caricato, in download, mancante. */
-  status(): Promise<{
-    ready: boolean;
-    modelName?: string;
-    modelSize?: number;
-    progress?: number;
-  }>;
+  status(): Promise<LocalAIStatusResult>;
 
-  /** Genera testo dato un prompt. Bloccante (~30s per ~200 token). */
+  /** Genera testo dato un prompt. Bloccante (decine di secondi). */
   generate(options: {
     prompt: string;
     maxTokens?: number;
@@ -37,7 +47,11 @@ export interface LocalAIPlugin {
 const Plugin = registerPlugin<LocalAIPlugin>("LocalAI", {
   web: () => ({
     echo: async ({ value }: { value: string }) => ({ value }),
-    status: async () => ({ ready: false }),
+    status: async () => ({
+      ready: false,
+      status: "idle" as LocalAIStatus,
+      error: "Web environment: AI on-device disponibile solo in app nativa.",
+    }),
     generate: async () => ({
       text: "",
       tokensGenerated: 0,
