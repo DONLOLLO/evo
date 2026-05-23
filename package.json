@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "ios:sync": "npm run build && npx cap sync ios && node scripts/add-ios-plugin.mjs",
-    "ios:open": "npm run ios:sync && npx cap open ios"
+    "ios:pods": "cd ios/App && LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 pod install",
+    "ios:open": "npm run ios:sync && open ios/App/App.xcworkspace"
   },
   "dependencies": {
     "@capacitor/android": "^8.3.4",
