@@ -23,7 +23,7 @@ const projectPath = path.join(
   "project.pbxproj",
 );
 
-const FILES_TO_ADD = ["LocalAIPlugin.swift"];
+const FILES_TO_ADD = ["LocalAIPlugin.swift", "MainViewController.swift"];
 
 const project = xcode.project(projectPath);
 

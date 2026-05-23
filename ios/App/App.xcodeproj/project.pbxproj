@@ -16,6 +16,7 @@
 		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
 		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
 		032B4CC855C04EBD9C00422E /* LocalAIPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13CA4E289C9449E1B704438F /* LocalAIPlugin.swift */; };
+		45C1CB8ABC53481399D4C0E3 /* MainViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E968CB9A778B4551BC588E70 /* MainViewController.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -30,6 +31,7 @@
 		50B271D01FEDC1A000F3C39B /* public */ = {isa = PBXFileReference; lastKnownFileType = folder; path = public; sourceTree = "<group>"; };
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
 		13CA4E289C9449E1B704438F /* LocalAIPlugin.swift */ = {isa = PBXFileReference; name = "LocalAIPlugin.swift"; path = "LocalAIPlugin.swift"; sourceTree = "<group>"; fileEncoding = 4; lastKnownFileType = sourcecode.swift; explicitFileType = undefined; includeInIndex = 0; };
+		E968CB9A778B4551BC588E70 /* MainViewController.swift */ = {isa = PBXFileReference; name = "MainViewController.swift"; path = "MainViewController.swift"; sourceTree = "<group>"; fileEncoding = 4; lastKnownFileType = sourcecode.swift; explicitFileType = undefined; includeInIndex = 0; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -73,6 +75,7 @@
 				2FAD9762203C412B000D30F8 /* config.xml */,
 				50B271D01FEDC1A000F3C39B /* public */,
 				13CA4E289C9449E1B704438F /* LocalAIPlugin.swift */,
+				E968CB9A778B4551BC588E70 /* MainViewController.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -160,6 +163,7 @@
 			files = (
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
 				032B4CC855C04EBD9C00422E /* LocalAIPlugin.swift in Sources */,
+				45C1CB8ABC53481399D4C0E3 /* MainViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
