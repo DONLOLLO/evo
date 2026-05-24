@@ -259,6 +259,26 @@ Ieri ho chiuso la demo davanti a 30 persone.`}
             vuoi creare, poi conferma.
           </p>
 
+          {rawOutput && (
+            <details className="mb-3">
+              <summary className="text-ink-quiet text-[10.5px] uppercase tracking-wider cursor-pointer active:opacity-70">
+                Output raw del modello (debug)
+              </summary>
+              <pre
+                className="mt-2 p-2.5 rounded-xl text-[10.5px] whitespace-pre-wrap leading-relaxed"
+                style={{
+                  background: "rgba(255,255,255,0.04)",
+                  border: "0.5px solid rgba(255,255,255,0.08)",
+                  color: "rgba(255,255,255,0.6)",
+                  maxHeight: "25vh",
+                  overflowY: "auto",
+                }}
+              >
+                {rawOutput}
+              </pre>
+            </details>
+          )}
+
           <ul className="space-y-1.5 max-h-[50vh] overflow-y-auto -mx-1 px-1 mb-4">
             {extracted.map((item, i) => {
               const isSelected = selected.has(i);
