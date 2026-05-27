@@ -1,0 +1,6 @@
+<svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <!-- Solo il logo per icone adaptive Android (no background) -->
+  <!-- Padding aumentato perché Android crop ~66% del foreground -->
+  <circle cx="512" cy="512" r="180" fill="none" stroke="#FFFFFF" stroke-width="36" stroke-linecap="round"/>
+  <circle cx="512" cy="512" r="38" fill="#FFFFFF"/>
+</svg>
