@@ -5,6 +5,7 @@ import { Sheet } from "../pages/Missions";
 import { uid, weekStartISO, shiftDate, todayISO } from "../lib/date";
 import { Check, Trophy, ListChecks, Calendar, Heart } from "lucide-react";
 import type { WeeklyReview } from "../types";
+import { success as hSuccess } from "../lib/haptics";
 
 function inRange(iso: string, fromISO: string, toISO: string) {
   return iso >= fromISO && iso <= toISO;
@@ -119,6 +120,7 @@ export default function WeeklyReviewSheet({
         ...payload,
       });
     }
+    hSuccess();
     onClose();
   }
 

@@ -5,8 +5,10 @@ import { db } from "../db/database";
 import Layout from "../components/Layout";
 import { priorityHue, priorityLabels } from "../components/PriorityDot";
 import { uid, todayISO } from "../lib/date";
-import { Plus, Trash2, Pin, X, Check, Pencil } from "lucide-react";
+import { Plus, Trash2, Pin, X, Check, Pencil, Target } from "lucide-react";
 import type { Mission, Priority, Area } from "../types";
+import { tap as hTap, success as hSuccess } from "../lib/haptics";
+import EmptyState from "../components/EmptyState";
 
 type Filter = "today" | "all" | "done";
 const priorityWeight: Record<Priority, number> = { high: 0, mid: 1, low: 2 };
@@ -36,17 +38,21 @@ export default function Missions() {
   }, [missions, filter, areaFilter, today]);
 
   async function toggleDone(m: Mission) {
+    if (!m.done) hSuccess();
+    else hTap();
     await db.missions.update(m.id, {
       done: !m.done,
       doneAt: !m.done ? Date.now() : undefined,
     });
   }
   async function togglePin(m: Mission) {
+    hTap();
     await db.missions.update(m.id, {
       pinnedForDate: m.pinnedForDate === today ? undefined : today,
     });
   }
   async function remove(id: string) {
+    hTap();
     await db.missions.delete(id);
   }
 
@@ -208,9 +214,24 @@ export default function Missions() {
       </AnimatePresence>
 
       {filtered.length === 0 && (
-        <div className="card text-center text-ink-muted text-[14px] py-10">
-          Nessuna missione.
-        </div>
+        <EmptyState
+          icon={Target}
+          title={
+            filter === "done"
+              ? "Nessuna missione chiusa ancora"
+              : filter === "today"
+                ? "Niente in agenda"
+                : "Nessuna missione"
+          }
+          subtitle={
+            filter === "done"
+              ? "Quando completi una missione la trovi qui."
+              : filter === "today"
+                ? "Tocca + in basso per aggiungere la prima. O usa Brain Dump per scaricarne molte tutte insieme."
+                : "Aggiungi la tua prima missione con il bottone + in basso."
+          }
+          accent="#b9a4ff"
+        />
       )}
 
       {/* ── FAB ─────────────────────────────────────────────────────── */}

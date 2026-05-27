@@ -12,6 +12,7 @@ import WeeklyReviewSheet, {
 } from "../components/WeeklyReviewSheet";
 import BrainDumpSheet from "../components/BrainDumpSheet";
 import { Sparkles as SparklesIcon } from "lucide-react";
+import { tap as hTap, success as hSuccess } from "../lib/haptics";
 import { Check, ChevronRight, Moon, Sun, Sunrise, Target, Flame, MessageCircle, Phone, Mail, Coffee, MoreHorizontal, Network } from "lucide-react";
 import type { Mission, Mood, TouchChannel, Challenge, ChallengeStatus } from "../types";
 
@@ -155,8 +156,12 @@ export default function Home() {
       .where({ blockId, date: today })
       .first();
     if (existing) {
-      await db.routineChecks.update(existing.id, { done: !existing.done, at: Date.now() });
+      const willBeDone = !existing.done;
+      if (willBeDone) hSuccess();
+      else hTap();
+      await db.routineChecks.update(existing.id, { done: willBeDone, at: Date.now() });
     } else {
+      hSuccess();
       await db.routineChecks.add({
         id: uid("rc-"),
         blockId,
@@ -168,6 +173,7 @@ export default function Home() {
   }
 
   async function completeMission(id: string) {
+    hSuccess();
     await db.missions.update(id, { done: true, doneAt: Date.now() });
   }
 

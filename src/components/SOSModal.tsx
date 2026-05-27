@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../db/database";
 import { X, Trophy, Sparkles, Wind, ChevronRight } from "lucide-react";
+import { medium as hMedium, tap as hTap } from "../lib/haptics";
 
 type SosMood = "down" | "anxious" | "stuck" | "frustrated";
 
@@ -102,7 +103,13 @@ export default function SOSModal({ onClose }: { onClose: () => void }) {
         onClick={(e) => e.stopPropagation()}
       >
         {!mood ? (
-          <MoodPicker onPick={setMood} onClose={onClose} />
+          <MoodPicker
+            onPick={(m) => {
+              hMedium();
+              setMood(m);
+            }}
+            onClose={onClose}
+          />
         ) : (
           <Sequence
             mood={moodMeta!}
@@ -259,7 +266,10 @@ function Sequence({
       {/* ── Azioni ──────────────────────────────────────────────────── */}
       <div className="flex items-center justify-center gap-3 mt-2">
         <button
-          onClick={onShuffle}
+          onClick={() => {
+            hTap();
+            onShuffle();
+          }}
           className="glass-thin rounded-full px-4 py-2 text-[12.5px] font-medium inline-flex items-center gap-1.5 active:scale-95 transition-transform"
         >
           <ChevronRight size={13} /> Altra combinazione

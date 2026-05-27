@@ -15,6 +15,7 @@ import {
   type Extracted,
 } from "../lib/brainDump";
 import { Sparkles, Check, AlertTriangle, RotateCw, Download } from "lucide-react";
+import { tap as hTap, success as hSuccess, error as hError } from "../lib/haptics";
 
 type Stage = "input" | "processing" | "preview" | "done" | "error";
 
@@ -96,6 +97,7 @@ export default function BrainDumpSheet({ onClose }: { onClose: () => void }) {
       return;
     }
     if (!modelReady) {
+      hError();
       setError(
         modelStatus?.status === "downloading"
           ? "Modello in scaricamento, riprova tra poco."
@@ -151,10 +153,12 @@ export default function BrainDumpSheet({ onClose }: { onClose: () => void }) {
     const result = await commitExtracted(items, ctx);
     setCreated(result.created);
     setSkipped(result.skipped);
+    hSuccess();
     setStage("done");
   }
 
   function toggle(i: number) {
+    hTap();
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(i)) next.delete(i);

@@ -17,8 +17,10 @@ import {
   Trash2,
   Pencil,
   Users,
+  Network as NetworkIcon,
 } from "lucide-react";
 import type { Person, Touchpoint, TouchChannel } from "../types";
+import EmptyState from "../components/EmptyState";
 
 const channelIcons: Record<TouchChannel, React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }>> = {
   message: MessageCircle,
@@ -120,13 +122,12 @@ export default function Rete() {
       </div>
 
       {groups.length === 0 ? (
-        <div className="card text-center text-ink-muted text-[14px] py-12">
-          Nessun follow-up.
-          <br />
-          <span className="text-ink-quiet text-[12px]">
-            Aggiungi una persona da sentire con il bottone +
-          </span>
-        </div>
+        <EmptyState
+          icon={NetworkIcon}
+          title="La tua rete inizia qui"
+          subtitle="Aggiungi persone con cui restare in contatto e quando ti vuoi ricordare di sentirle. Tap + in basso."
+          accent="#5dd4c4"
+        />
       ) : (
         <div className="space-y-6">
           {groups.map((g) => (

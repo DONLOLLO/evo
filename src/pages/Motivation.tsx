@@ -5,6 +5,7 @@ import { db } from "../db/database";
 import Layout from "../components/Layout";
 import { Sheet } from "./Missions";
 import SOSModal from "../components/SOSModal";
+import EmptyState from "../components/EmptyState";
 import { uid } from "../lib/date";
 import {
   Sparkles,
@@ -255,13 +256,12 @@ export default function Motivation() {
                 </motion.li>
               ))}
             {(!victories || victories.length === 0) && (
-              <div className="card text-center text-ink-muted text-[14px] py-10">
-                Aggiungi i momenti in cui ce l'hai fatta.
-                <br />
-                <span className="text-ink-quiet text-[12px]">
-                  Da rileggere nei giorni neri.
-                </span>
-              </div>
+              <EmptyState
+                icon={Trophy}
+                title="Le tue vittorie ti aspettano"
+                subtitle="Annota i momenti in cui ce l'hai fatta. Sono il combustibile per i giorni neri."
+                accent="#FFD479"
+              />
             )}
           </ul>
           <button

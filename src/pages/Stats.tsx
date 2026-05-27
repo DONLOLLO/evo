@@ -3,6 +3,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { motion, AnimatePresence } from "framer-motion";
 import { db } from "../db/database";
 import { uid } from "../lib/date";
+import { selection as hSelection } from "../lib/haptics";
 import Layout from "../components/Layout";
 import {
   Radar,
@@ -42,6 +43,7 @@ export default function StatsPage() {
   async function adjust(stat: Stat, delta: number) {
     const next = Math.max(0, Math.min(100, stat.value + delta));
     if (next === stat.value) return;
+    hSelection();
     await db.stats.update(stat.id, { value: next, updatedAt: Date.now() });
     await db.statHistory.add({
       id: uid("sh-"),

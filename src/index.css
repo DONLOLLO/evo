@@ -33,6 +33,15 @@
     -webkit-user-select: none;
     user-select: none;
   }
+  /* Riabilita selezione testo + callout (paste menu) su input editabili.
+     Senza queste righe il long-press iOS non mostra "Incolla". */
+  input,
+  textarea,
+  [contenteditable="true"] {
+    -webkit-user-select: text;
+    user-select: text;
+    -webkit-touch-callout: default;
+  }
 }
 
 @layer components {

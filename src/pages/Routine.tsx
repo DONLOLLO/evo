@@ -5,8 +5,10 @@ import Layout from "../components/Layout";
 import { Sheet } from "./Missions";
 import ChallengePanel from "../components/ChallengePanel";
 import { dayName, todayISO, currentWeekday, uid } from "../lib/date";
-import { Plus, Trash2, Pencil, Check } from "lucide-react";
+import { Plus, Trash2, Pencil, Check, Sunrise } from "lucide-react";
 import type { RoutineBlock, Weekday } from "../types";
+import { tap as hTap, success as hSuccess } from "../lib/haptics";
+import EmptyState from "../components/EmptyState";
 
 const allDays: Weekday[] = [1, 2, 3, 4, 5, 6, 0]; // Lun..Dom
 
@@ -47,8 +49,12 @@ export default function Routine() {
       .where({ blockId, date: today })
       .first();
     if (existing) {
-      await db.routineChecks.update(existing.id, { done: !existing.done, at: Date.now() });
+      const willBeDone = !existing.done;
+      if (willBeDone) hSuccess();
+      else hTap();
+      await db.routineChecks.update(existing.id, { done: willBeDone, at: Date.now() });
     } else {
+      hSuccess();
       await db.routineChecks.add({
         id: uid("rc-"),
         blockId,
@@ -60,6 +66,7 @@ export default function Routine() {
   }
 
   async function deleteBlock(id: string) {
+    hTap();
     await db.routineBlocks.delete(id);
   }
 
@@ -145,9 +152,12 @@ export default function Routine() {
           </div>
 
           {dayBlocks.length === 0 ? (
-            <div className="card text-center text-ink-muted text-[14px] py-10">
-              Nessun blocco per {dayName(selectedDay).toLowerCase()}.
-            </div>
+            <EmptyState
+              icon={Sunrise}
+              title={`Niente di ${dayName(selectedDay).toLowerCase()}`}
+              subtitle="Le routine sono il telaio della giornata. Aggiungi il primo blocco col + in basso."
+              accent="#5dd4c4"
+            />
           ) : (
             <div className="card !p-0 overflow-hidden">
               {dayBlocks.map((b, i) => {
